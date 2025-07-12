@@ -1,16 +1,4 @@
-/* ------------------------------------------------------------------ */
-/*  KenKen types (copied from the prompt)                             */
-/* ------------------------------------------------------------------ */
-type Op = '+' | '-' | '' | '/' | '=';
-interface Cage {
-  cells: Array<[number, number]>; // 1-based [row, col]
-  target: number;
-  op: Op;
-}
-export interface Puzzle {
-  size: number; // n × n
-  cages: Cage[];
-}
+import { Op, Cage, Puzzle } from './types';
 
 /* ------------------------------------------------------------------ */
 /*  Public API                                                        */
@@ -40,22 +28,19 @@ export function solveKenKen(
   // cell → cage lookup
   const cageOf = new Map<string, Cage>();
   for (const cage of puzzle.cages) {
-    for (const [r, c] of cage.cells) {
-      // Convert 1-based coordinates to 0-based
-      cageOf.set(`${r - 1},${c - 1}`, cage);
-    }
+    for (const [r, c] of cage.cells) cageOf.set(`${r},${c}`, cage);
   }
 
   /* -------------------------------------------------------------- */
   /*  Utility: test one cage under the current partial grid         */
   /* -------------------------------------------------------------- */
   function cageValidPartial(cage: Cage): boolean {
-    const op = cage.op === '' ? '*' : cage.op; // '' means multiplication
+    const op = cage.op;
     const values: number[] = [];
     let unassigned = 0;
 
     for (const [r, c] of cage.cells) {
-      const v = grid[r - 1][c - 1]; // Convert 1-based to 0-based
+      const v = grid[r][c];
       v === 0 ? unassigned++ : null;
       values.push(v);
     }
@@ -139,9 +124,9 @@ export function solveKenKen(
     ) {
       const [r, c] = cage.cells[0];
       const v = cage.target;
-      if (v < 1 || v > n || rowUsed[r - 1][v] || colUsed[c - 1][v]) return null;
-      grid[r - 1][c - 1] = v; // Convert 1-based to 0-based
-      rowUsed[r - 1][v] = colUsed[c - 1][v] = true;
+      if (v < 1 || v > n || rowUsed[r][v] || colUsed[c][v]) return null;
+      grid[r][c] = v;
+      rowUsed[r][v] = colUsed[c][v] = true;
     }
   }
 
@@ -187,21 +172,11 @@ export function solveKenKen(
   /* -------------------------------------------------------------- */
   function backtrack(): boolean {
     const pick = selectNext();
-
-    /* ----------------------------------------- */
-    /* Case: no cell selected → maybe finished   */
-    /* ----------------------------------------- */
     if (!pick) {
-      // If ANY zero is still on the board this is a dead end, not a solution
-      for (let r = 0; r < n; r++)
-        for (let c = 0; c < n; c++)
-          if (grid[r][c] === 0) return false; // <── added line
-
-      // all cells filled – validate every cage once more
+      // If no unassigned cells remain, puzzle is solved
       for (const cage of puzzle.cages)
         if (!cageValidPartial(cage)) return false;
-
-      return true; // genuine solution
+      return true;
     }
 
     const [r, c, cand] = pick;
